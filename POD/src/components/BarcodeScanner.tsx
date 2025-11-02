@@ -89,6 +89,9 @@ export const BarcodeScanner = ({ onScanSuccess }: BarcodeScannerProps) => {
       <p className="text-sm text-center text-muted-foreground">
         Position the barcode within the frame
       </p>
+      <p className="text-sm text-center text-muted-foreground">
+        Supported formats: CODE_128, CODE_39, EAN_13, EAN_8, UPC_A, UPC_E, ITF, CODABAR
+      </p>
     </div>
   );
 };
