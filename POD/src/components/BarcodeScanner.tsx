@@ -92,6 +92,9 @@ export const BarcodeScanner = ({ onScanSuccess }: BarcodeScannerProps) => {
       <p className="text-sm text-center text-muted-foreground">
         Supported formats: CODE_128, CODE_39, EAN_13, EAN_8, UPC_A, UPC_E, ITF, CODABAR
       </p>
+      <p className="text-sm text-center text-muted-foreground">
+        Try to keep the barcode steady for a few seconds for better recognition in a mid-light area.
+      </p>
     </div>
   );
 };

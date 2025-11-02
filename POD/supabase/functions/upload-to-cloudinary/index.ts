@@ -28,7 +28,7 @@ serve(async (req) => {
     }
 
     const timestamp = Math.round(Date.now() / 1000);
-    const folder = `Assets/contents/${awbNumber}`;
+    const folder = `Flipkart/awb/${awbNumber}`;
     
     // Create signature for authenticated upload
     const signatureString = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
@@ -40,9 +40,14 @@ serve(async (req) => {
 
     console.log('Uploading to Cloudinary with folder:', folder);
 
+    // ✅ FIX: Convert base64 string to blob properly
+    const base64Response = await fetch(`data:${fileType};base64,${fileData}`);
+    const blob = await base64Response.blob();
+
     // Upload to Cloudinary
     const formData = new FormData();
-    formData.append('file', fileData);
+    const fileExtension = fileType.split('/')[1] || (mediaType === 'video' ? 'webm' : 'png');
+    formData.append('file', blob, `${mediaType}.${fileExtension}`);
     formData.append('api_key', apiKey);
     formData.append('timestamp', timestamp.toString());
     formData.append('signature', signature);

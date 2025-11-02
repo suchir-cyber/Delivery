@@ -76,6 +76,9 @@ export const QRScanner = ({ onScanSuccess }: QRScannerProps) => {
       <p className="text-sm text-center text-muted-foreground">
         Position the QR code within the frame
       </p>
+      <p className="text-sm text-center text-muted-foreground">
+        Try to keep the QR code steady for a few seconds for better recognition in a mid-light area.
+      </p>
     </div>
   );
 };

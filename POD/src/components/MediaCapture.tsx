@@ -94,6 +94,15 @@ export const MediaCapture = ({ awbNumber, onBack, onComplete }: MediaCaptureProp
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
           if (blob) {
+            const MAX_PHOTO_SIZE = 3 * 1024 * 1024; // 3MB
+            if (blob.size > MAX_PHOTO_SIZE) {
+              toast({
+                title: "File Too Large",
+                description: "Photos must be under 3MB.",
+                variant: "destructive",
+              });
+              return;
+            }
             const file = new File([blob], `photo-${Date.now()}.png`, { type: "image/png" });
             setCapturedFile(file);
             setPreviewUrl(URL.createObjectURL(file));
@@ -142,6 +151,17 @@ const startRecording = () => {
         try {
           // combine chunks into blob
           const blob = new Blob(chunks, { type: mime });
+          const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
+
+          if (blob.size > MAX_VIDEO_SIZE) {
+            toast({
+              title: "File Too Large",
+              description: "Videos must be under 10MB.",
+              variant: "destructive",
+            });
+            return;
+          }
+
           const file = new File([blob], `video-${Date.now()}.webm`, { type: mime });
 
           // revoke previous preview URL if any
@@ -156,6 +176,7 @@ const startRecording = () => {
           setCapturedFile(file);
           setPreviewUrl(url);
           setShowCamera(false);
+          setRecordedChunks([]);
 
           // robustly attach to preview element and try to play
           const v = previewVideoRef.current;
@@ -226,72 +247,92 @@ const startRecording = () => {
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
+
+    const MAX_PHOTO_SIZE = 3 * 1024 * 1024; // 3MB
+    const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
+
+    if (mediaType === "photo" && file.size > MAX_PHOTO_SIZE) {
+      toast({
+        title: "File Too Large",
+        description: "Photos must be under 3MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (mediaType === "video" && file.size > MAX_VIDEO_SIZE) {
+      toast({
+        title: "File Too Large",
+        description: "Videos must be under 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.debug("Uploaded file size (bytes):", file.size, "type:", file.type);
     setCapturedFile(file);
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
   };
 
-    const handleSubmit = async () => {
-      if (!capturedFile) {
-        toast({
-          title: "No file selected",
-          description: "Please capture or upload a file first.",
-          variant: "destructive",
-        });
-        return;
+ const handleSubmit = async () => {
+  if (!capturedFile) {
+    toast({
+      title: "No file selected",
+      description: "Please capture or upload a file first.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsUploading(true);
+
+  try {
+    const isVideo = capturedFile.type.startsWith("video/");
+    const resourceType = isVideo ? 'video' : 'image';
+    
+    // Direct upload to Cloudinary for BOTH images and videos
+    const formData = new FormData();
+    formData.append('file', capturedFile);
+    formData.append('upload_preset', 'pod_upload');
+    formData.append('folder', `Flipkart/awb/${awbNumber}`);
+    formData.append('resource_type', resourceType);
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/ds73omhtw/${resourceType}/upload`,
+      {
+        method: 'POST',
+        body: formData,
       }
-  
-      setIsUploading(true);
-  
-      try {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Data = reader.result as string;
-          
-          try {
-            const { data, error } = await supabase.functions.invoke('upload-to-cloudinary', {
-              body: {
-                awbNumber,
-                fileData: base64Data,
-                fileType: capturedFile.type,
-                mediaType: mediaType === "video" ? "video" : "image",
-              },
-            });
-  
-            if (error) throw error;
-  
-            if (data.success) {
-              toast({
-                title: "Upload Successful",
-                description: `Media uploaded for AWB: ${awbNumber}`,
-              });
-              onComplete();
-            } else {
-              throw new Error(data.error || "Upload failed");
-            }
-          } catch (error: any) {
-            console.error("Upload error:", error);
-            toast({
-              title: "Upload Failed",
-              description: error.message || "Failed to upload media. Please try again.",
-              variant: "destructive",
-            });
-          } finally {
-            setIsUploading(false);
-          }
-        };
-        reader.readAsDataURL(capturedFile);
-      } catch (error: any) {
-        console.error("File read error:", error);
-        toast({
-          title: "Upload Failed",
-          description: "Failed to read file. Please try again.",
-          variant: "destructive",
-        });
-        setIsUploading(false);
-      }
-    };
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Cloudinary error:', errorData);
+      throw new Error(errorData.error?.message || 'Upload failed');
+    }
+
+    const data = await response.json();
+    console.log('Upload successful:', data.secure_url);
+
+    toast({
+      title: "Upload Successful",
+      description: `${isVideo ? 'Video' : 'Photo'} uploaded for AWB: ${awbNumber}`,
+    });
+    onComplete();
+
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    toast({
+      title: "Upload Failed",
+      description: error?.message || "Failed to upload media.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsUploading(false);
+  }
+};
+
   const resetCapture = () => {
     setCapturedFile(null);
     if (previewUrl) {
@@ -411,6 +452,9 @@ const startRecording = () => {
               <div className="space-y-4">
                 <p className="text-center font-medium text-lg">
                   {mediaType === "photo" ? "Capture Photo" : "Record Video"}
+                </p>
+                <p className="text-center text-sm text-muted-foreground">
+                  {mediaType === "photo" ? "(max 3MB)" : "(max 10MB)"}
                 </p>
 
                 <div className="grid grid-cols-2 gap-4">
