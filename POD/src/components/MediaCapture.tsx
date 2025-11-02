@@ -291,15 +291,18 @@ const startRecording = () => {
     const isVideo = capturedFile.type.startsWith("video/");
     const resourceType = isVideo ? 'video' : 'image';
     
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
     // Direct upload to Cloudinary for BOTH images and videos
     const formData = new FormData();
     formData.append('file', capturedFile);
-    formData.append('upload_preset', 'pod_upload');
+    formData.append('upload_preset', uploadPreset);
     formData.append('folder', `Flipkart/awb/${awbNumber}`);
     formData.append('resource_type', resourceType);
-
+   
     const response = await fetch(
-      `https://api.cloudinary.com/v1_1/ds73omhtw/${resourceType}/upload`,
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
       {
         method: 'POST',
         body: formData,
